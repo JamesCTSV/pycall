@@ -1,19 +1,18 @@
 """A simple wrapper for Asterisk call files."""
 
-
 from __future__ import with_statement
 from shutil import move
 from time import mktime
 from pwd import getpwnam
 from tempfile import mkstemp
 from os import chown, error, utime
-import os
+import os, paramiko
 
 from path import Path
 
 from .call import Call
 from .actions import Action, Context
-from .errors import InvalidTimeError, NoSpoolPermissionError, NoUserError, \
+from .errors import ParamikoError, InvalidTimeError, NoSpoolPermissionError, NoUserError, \
     NoUserPermissionError, ValidationError
 
 
@@ -24,7 +23,7 @@ class CallFile(object):
     DEFAULT_SPOOL_DIR = '/var/spool/asterisk/outgoing'
 
     def __init__(self, call, action, archive=None, filename=None, tempdir=None,
-            user=None, spool_dir=None):
+                 user=None, spool_dir=None):
         """Create a new `CallFile` obeject.
 
         :param obj call: A `pycall.Call` instance.
@@ -61,7 +60,7 @@ class CallFile(object):
         :rtype: String.
         """
         return 'CallFile-> archive: %s, user: %s, spool_dir: %s' % (
-                self.archive, self.user, self.spool_dir)
+            self.archive, self.user, self.spool_dir)
 
     def is_valid(self):
         """Check to see if all attributes are valid.
@@ -152,6 +151,32 @@ class CallFile(object):
 
         try:
             move(Path(self.tempdir) / Path(self.filename),
-                    Path(self.spool_dir) / Path(self.filename))
+                 Path(self.spool_dir) / Path(self.filename))
         except IOError:
             raise NoSpoolPermissionError
+
+    def remote_spool(self, ipaddr, usr, passwd):
+        self.writefile()
+
+        if self.user:
+            try:
+                pwd = getpwnam(self.user)
+                uid = pwd[2]
+                gid = pwd[3]
+
+                try:
+                    chown(Path(self.tempdir) / Path(self.filename), uid, gid)
+                except error:
+                    raise NoUserPermissionError
+            except KeyError:
+                raise NoUserError
+
+        try:
+            c = paramiko.SSHClient()
+            c.load_system_host_keys
+            t = paramiko.Transport(ipaddr, 22)
+            t.connect(username=usr, password=passwd)
+            sftp = paramiko.SFTPClient.from_transport(t)
+            sftp.put(Path(self.tempdir) / Path(self.filename), Path(self.tempdir) / Path(self.filename))
+        except paramiko.SSHException:
+            raise ParamikoError
