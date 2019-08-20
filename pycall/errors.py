@@ -1,6 +1,8 @@
 """Custom error classes for signaling issues."""
 
+
 from sys import version_info
+
 
 if version_info < (3, 0, 0):
     from exceptions import Exception
@@ -22,10 +24,6 @@ class NoSpoolPermissionError(PycallError):
 
 class NoUserError(PycallError):
     """User does not exist."""
-
-
-class ParamikoError(PycallError):
-    """ Something went wrong starting SSH connection."""
 
 
 class NoUserPermissionError(PycallError):
