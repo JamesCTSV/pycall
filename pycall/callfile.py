@@ -180,5 +180,8 @@ class CallFile(object):
             sftp.put(Path(self.tempdir) / Path(self.filename), Path(self.tempdir) / Path(self.filename))
             sftp.chown(Path(self.tempdir) / Path(self.filename), uid, gid)
             sftp.rename(Path(self.tempdir) / Path(self.filename), Path(self.spool_dir) / Path(self.filename))
+            sftp.close()
+            t.close()
+            c.close()
         except paramiko.SSHException:
             raise ParamikoError
