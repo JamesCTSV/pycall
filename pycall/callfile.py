@@ -155,7 +155,7 @@ class CallFile(object):
         except IOError:
             raise NoSpoolPermissionError
 
-    def remote_spool(self, ipaddr, usr, passwd):
+    def remote_spool(self, ipaddr, usr, passwd, uid, gid):
         self.writefile()
 
         if self.user:
@@ -178,5 +178,7 @@ class CallFile(object):
             t.connect(username=usr, password=passwd)
             sftp = paramiko.SFTPClient.from_transport(t)
             sftp.put(Path(self.tempdir) / Path(self.filename), Path(self.tempdir) / Path(self.filename))
+            sftp.chown(Path(self.tempdir) / Path(self.filename), uid, gid)
+            sftp.rename(Path(self.tempdir) / Path(self.filename), Path(self.spool_dir) / Path(self.filename))
         except paramiko.SSHException:
             raise ParamikoError
