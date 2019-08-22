@@ -188,10 +188,11 @@ class CallFile(object):
                 raise ParamikoError
         if pkeypath:
             try:
+                pkey = paramiko.RSAKey.from_private_key_file(filename=pkeypath)
                 c = paramiko.SSHClient()
                 c.load_system_host_keys()
                 t = paramiko.Transport(ipaddr, 22)
-                t.connect(username=usr, key_filename=pkeypath)
+                t.connect(username=usr, pkey=pkey)
                 sftp = paramiko.SFTPClient.from_transport(t)
                 sftp.put(Path(self.tempdir) / Path(self.filename), Path(self.tempdir) / Path(self.filename))
                 sftp.chown(Path(self.tempdir) / Path(self.filename), uid, gid)
@@ -199,5 +200,5 @@ class CallFile(object):
                 sftp.close()
                 t.close()
                 c.close()
-            except paramiko.SSHException:
+            except (paramiko.SSHException, IOError) as e:
                 raise ParamikoError
