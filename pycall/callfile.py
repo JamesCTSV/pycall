@@ -155,7 +155,7 @@ class CallFile(object):
         except IOError:
             raise NoSpoolPermissionError
 
-    def remote_spool(self, ipaddr, usr, passwd, uid, gid):
+    def remote_spool(self, ipaddr, usr, uid, gid, passwd = None, pkeypath = None):
         self.writefile()
 
         if self.user:
@@ -170,18 +170,34 @@ class CallFile(object):
                     raise NoUserPermissionError
             except KeyError:
                 raise NoUserError
-
-        try:
-            c = paramiko.SSHClient()
-            c.load_system_host_keys
-            t = paramiko.Transport(ipaddr, 22)
-            t.connect(username=usr, password=passwd)
-            sftp = paramiko.SFTPClient.from_transport(t)
-            sftp.put(Path(self.tempdir) / Path(self.filename), Path(self.tempdir) / Path(self.filename))
-            sftp.chown(Path(self.tempdir) / Path(self.filename), uid, gid)
-            sftp.rename(Path(self.tempdir) / Path(self.filename), Path(self.spool_dir) / Path(self.filename))
-            sftp.close()
-            t.close()
-            c.close()
-        except paramiko.SSHException:
-            raise ParamikoError
+        if passwd:
+            try:
+                c = paramiko.SSHClient()
+                c.load_system_host_keys()
+                c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                t = paramiko.Transport(ipaddr, 22)
+                t.connect(username=usr, password=passwd)
+                sftp = paramiko.SFTPClient.from_transport(t)
+                sftp.put(Path(self.tempdir) / Path(self.filename), Path(self.tempdir) / Path(self.filename))
+                sftp.chown(Path(self.tempdir) / Path(self.filename), uid, gid)
+                sftp.rename(Path(self.tempdir) / Path(self.filename), Path(self.spool_dir) / Path(self.filename))
+                sftp.close()
+                t.close()
+                c.close()
+            except paramiko.SSHException:
+                raise ParamikoError
+        if pkeypath:
+            try:
+                c = paramiko.SSHClient()
+                c.load_system_host_keys()
+                t = paramiko.Transport(ipaddr, 22)
+                t.connect(username=usr, key_filename=pkeypath)
+                sftp = paramiko.SFTPClient.from_transport(t)
+                sftp.put(Path(self.tempdir) / Path(self.filename), Path(self.tempdir) / Path(self.filename))
+                sftp.chown(Path(self.tempdir) / Path(self.filename), uid, gid)
+                sftp.rename(Path(self.tempdir) / Path(self.filename), Path(self.spool_dir) / Path(self.filename))
+                sftp.close()
+                t.close()
+                c.close()
+            except paramiko.SSHException:
+                raise ParamikoError
